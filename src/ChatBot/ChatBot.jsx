@@ -28,11 +28,12 @@ const ChatBot = () => {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [chat, setChat] = useState(true);
+  const [active, setActive] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault(); // Prevent the default form submission
     if (inputValue.trim()) {
-      setMessages([...messages, { text: inputValue, user: true }]);
+      setMessages([...messages, { title: inputValue, user: true }]);
       setInputValue('');
       
       body.metadata.firstname = "Test";
@@ -44,29 +45,54 @@ const ChatBot = () => {
         redirect: "follow"
       };
 
-      fetch("https://a4cc-179-49-226-34.ngrok-free.app/api/v1/message", requestOptions)
-        .then((response) => response.json())
-        .then((result) => {
-          const received = result;
-          console.log(received);
+      if (!active) {
+        setActive(true);
+        fetch("https://a4cc-179-49-226-34.ngrok-free.app/api/v1/message", requestOptions)
+          .then((response) => response.json())
+          .then((result) => {
+            const received = result;
+            console.log(received);
 
-          // Iterate over the received messages
-          const newMessages = received.messages.map((msg) => {
-            if (msg && msg.payload && msg.payload.content) {
-              return { text: msg.payload.content.text, user: false };
-            }
-            return null;
-          }).filter(Boolean); // Remove any null values
+            // Iterate over the received messages
+            const newMessages = received.messages.map((msg) => {
+              if (msg && msg.payload && msg.payload.content) {
+                const test = msg.payload.content_type === "text" ? msg.payload.content.text : msg.payload.content.title;
+                const buttons = msg.payload.content.buttons ? msg.payload.content.buttons[0].content.accepts : [];
+                console.log(buttons);
+                return { title: test, user: false, botones: buttons };
+              }
+              return null;
+            }).filter(Boolean); // Remove any null values
 
-          // Add the received messages to the state
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            ...newMessages
-          ]);
-        })
-        .catch((error) => console.error(error));
+            // Add the received messages to the state
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              ...newMessages
+            ]);
+
+            setActive(false); // Reset the active state after fetching messages
+          })
+          .catch((error) => {
+            console.error(error);
+            setActive(false); // Reset the active state in case of an error
+          });
+      } else {
+        console.log("Wait");
+      }
     }
   };
+
+  function buttonsPress(option) {
+    switch (option) {
+      case "a":
+        console.log("A");
+        break;
+      case "b":
+        console.log("B");
+        break;
+      default:
+    }
+  }
 
   return (
     <div className="main">
@@ -76,7 +102,12 @@ const ChatBot = () => {
           <div className="chat-messages">
             {messages.map((message, index) => (
               <div key={index} className={`chat-message ${message.user ? 'right-message' : 'left-message'}`}>
-                {message.text}
+                {message.title}
+                {Array.isArray(message.botones) && message.botones.length !== 0 ? message.botones.map((btn, btnIndex) => (
+                  <button key={btnIndex} onClick={() => buttonsPress(btn)}>
+                    {btn}
+                  </button>
+                )) : null}
               </div>
             ))}
           </div>
